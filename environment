@@ -1,0 +1,45 @@
+{
+	"id": "2d7bdc4f-0870-4a6f-a4eb-b388581bc366",
+	"name": "KD SNAP Staging (Merchant)",
+	"values": [
+		{
+			"key": "base url",
+			"value": "",
+			"type": "default",
+			"enabled": true
+		},
+		{
+			"key": "X-TIMESTAMP",
+			"value": "",
+			"type": "default",
+			"enabled": true
+		},
+		{
+			"key": "X-PARTNER-ID",
+			"value": "",
+			"type": "default",
+			"enabled": true
+		},
+		{
+			"key": "private_key",
+			"value": "",
+			"type": "default",
+			"enabled": true
+		},
+		{
+			"key": "SECRET_KEY",
+			"value": "",
+			"type": "default",
+			"enabled": true
+		},
+		{
+			"key": "X-SIGNATURE",
+			"value": "",
+			"type": "default",
+			"enabled": true
+		}
+	],
+	"_postman_variable_scope": "environment",
+	"_postman_exported_at": "2025-10-17T03:17:21.518Z",
+	"_postman_exported_using": "Postman/11.67.3"
+}
