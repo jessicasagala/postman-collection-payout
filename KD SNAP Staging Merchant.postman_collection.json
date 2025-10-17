@@ -1,0 +1,611 @@
+{
+	"info": {
+		"_postman_id": "d5970abd-3e46-41b6-b01a-381b08422639",
+		"name": "KD SNAP Staging Merchant",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "22890622"
+	},
+	"item": [
+		{
+			"name": "Access Token",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"var CryptoJS = require(\"crypto-js\");",
+							"var moment = require(\"moment\");",
+							"var navigator = {}; //fake a navigator object for the lib",
+							"var window = {}; //fake a window object for the lib",
+							"eval(postman.getGlobalVariable(\"jsrsasign-js\")); //import javascript jsrsasign",
+							"",
+							"const clientId = pm.environment.get(\"X-PARTNER-ID\");",
+							"const privateKey = pm.environment.get(\"private_key\");",
+							"signRequest(privateKey, clientId)",
+							"",
+							"function signRequest(privateKey, clientId) {",
+							"",
+							"    const date = new Date().toISOString();",
+							"    const dateIso = moment(date).format('YYYY-MM-DDTHH:mm:ssZ') ",
+							"    ",
+							"    console.log('date: ' + dateIso);",
+							"    const data = `${clientId}|${dateIso}`",
+							"    console.log('stringtosign: ' + data);",
+							"    ",
+							"    console.log(\"Private Key: \" + privateKey);",
+							"    var signatureLib = new KJUR.crypto.Signature({\"alg\": \"SHA256withRSA\"});",
+							"    signatureLib.init(privateKey);",
+							"    signatureLib.updateString(data);",
+							"    var signatureHash = hextob64(signatureLib.sign());",
+							"    console.log(\"Signature: \" + signatureHash);",
+							"    ",
+							"    pm.request.headers.add({",
+							"        key: 'X-SIGNATURE',",
+							"        value: signatureHash",
+							"    });",
+							"",
+							"    pm.request.headers.add({",
+							"        key: 'X-TIMESTAMP',",
+							"        value: dateIso",
+							"    });",
+							"",
+							"    pm.request.headers.add({",
+							"        key: 'X-CLIENT-KEY',",
+							"        value: clientId",
+							"    });",
+							"}"
+						],
+						"type": "text/javascript",
+						"packages": {},
+						"requests": {}
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"var response = pm.response.json();",
+							"console.log(\"ACCESS_TOKEN : \" + response.accessToken);",
+							"pm.globals.set('ACCESS_TOKEN', response.accessToken);"
+						],
+						"type": "text/javascript",
+						"packages": {},
+						"requests": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"grantType\":\"client_credentials\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{base url}}authorization/v1/access-token/b2b",
+					"host": [
+						"{{base url}}authorization"
+					],
+					"path": [
+						"v1",
+						"access-token",
+						"b2b"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Inquiry",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"var CryptoJS = require(\"crypto-js\");",
+							"var moment = require(\"moment\");",
+							"var navigator = {}; //fake a navigator object for the lib",
+							"var window = {}; //fake a window object for the lib",
+							"eval(postman.getGlobalVariable(\"jsrsasign-js\")); //import javascript jsrsasign",
+							"",
+							"//const clientId = pm.environment.get('X-PARTNER-ID');",
+							"//const privateKey = pm.environment.get('private_key');",
+							"const secretKey = pm.environment.get('SECRET_KEY');",
+							"const path = \"/snap/v1.1/emoney/bank-account-inquiry\"",
+							"signRequest(pm.request, path)",
+							"",
+							"pm.globals.set(\"trx_id\",  _.random(1,99999999));",
+							"",
+							"",
+							"function signRequest(request, path) {",
+							"",
+							"    const date = new Date().toISOString();",
+							"    const dateIso = moment(date).format('YYYY-MM-DDTHH:mm:ssZ') ",
+							"     pm.globals.set('X-TIMESTAMP', dateIso);",
+							"    ",
+							"    console.log('date: ' + dateIso);",
+							"    const method = request.method;",
+							"    console.log('method: ' + method);",
+							"    console.log('path: ' + path);",
+							"    const body = request.body.raw;",
+							"    var jsonObject = JSON.parse(body);",
+							"    var minifyJsonObject = JSON.stringify(jsonObject, null, 0)",
+							"    console.log('minifyJsonObject: ' + minifyJsonObject);",
+							"    const bodyToHash = CryptoJS.SHA256(minifyJsonObject);",
+							"    // const bodySha256 = CryptoJS.enc.Base64.stringify(CryptoJS.SHA256(minifyJsonObject)).toLowerCase();",
+							"    const bodySha256 = bodyToHash.toString(CryptoJS.enc.Hex);",
+							"    const accessToken = pm.globals.get('ACCESS_TOKEN');",
+							"    console.log('access token :' + accessToken);",
+							"    console.log('bodySha256: ' + bodySha256);",
+							"    const data = `${method}:${path}:${accessToken}:${bodySha256}:${dateIso}`",
+							"    console.log('stringtosign: ' + data);",
+							"",
+							"   const signatureHash =  createSignature(data, secretKey)",
+							"   console.log('signature :' + signatureHash);",
+							"    pm.globals.set(\"X-SIGNATURE\", signatureHash);",
+							"    ",
+							"}",
+							"",
+							"function createSignature(rawData, secretKey){",
+							"    let signatureUtf8 = CryptoJS.enc.Utf8.parse(rawData);",
+							"    var secretUtf8 = CryptoJS.enc.Utf8.parse(secretKey);",
+							"    console.log(\"secretKey: \" + secretKey);",
+							"    var signatureBytes = CryptoJS.HmacSHA512(signatureUtf8,secretUtf8);",
+							"    var requestSignatureBase64String = CryptoJS.enc.Base64.stringify(signatureBytes);",
+							"    return requestSignatureBase64String;",
+							"}"
+						],
+						"type": "text/javascript",
+						"packages": {},
+						"requests": {}
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{ACCESS_TOKEN}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "X-SIGNATURE",
+						"value": "{{X-SIGNATURE}}",
+						"type": "text"
+					},
+					{
+						"key": "X-TIMESTAMP",
+						"value": "{{X-TIMESTAMP}}",
+						"type": "text"
+					},
+					{
+						"key": "X-PARTNER-ID",
+						"value": "{{X-PARTNER-ID}}",
+						"type": "text"
+					},
+					{
+						"key": "X-EXTERNAL-ID",
+						"value": "3895017532rw",
+						"type": "text"
+					},
+					{
+						"key": "CHANNEL-ID",
+						"value": "H2H",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"partnerReferenceNo\": \"8472093ed04fe\",\n  \"customerNumber\": \"628115678890\",\n  \"amount\": {\n    \"value\": \"11000.00\",\n    \"currency\": \"IDR\"\n  },\n  \"beneficiaryAccountNumber\": \"7746555134\",\n  \"additionalInfo\": {\n    \"channelCode\": \"07\",\n    \"beneficiaryBankCode\": \"008\",\n    \"beneficiaryAccountName\": \"Medina\",\n    \"senderCountryCode\": \"ID\"\n  }\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{base url}}snap/v1.1/emoney/bank-account-inquiry",
+					"host": [
+						"{{base url}}snap"
+					],
+					"path": [
+						"v1.1",
+						"emoney",
+						"bank-account-inquiry"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Remit",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"var CryptoJS = require(\"crypto-js\");",
+							"var moment = require(\"moment\");",
+							"var navigator = {}; //fake a navigator object for the lib",
+							"var window = {}; //fake a window object for the lib",
+							"eval(postman.getGlobalVariable(\"jsrsasign-js\")); //import javascript jsrsasign",
+							"",
+							"//const clientId = pm.environment.get('X-PARTNER-ID');",
+							"//const privateKey = pm.environment.get('private_key');",
+							"const secretKey = pm.environment.get('SECRET_KEY');",
+							"const path = \"/snap/v1.1/emoney/transfer-bank\"",
+							"signRequest(pm.request, path)",
+							"",
+							"pm.globals.set(\"trx_id\",  _.random(1,99999999));",
+							"",
+							"",
+							"function signRequest(request, path) {",
+							"",
+							"    const date = new Date().toISOString();",
+							"    const dateIso = moment(date).format('YYYY-MM-DDTHH:mm:ssZ') ",
+							"     pm.globals.set('X-TIMESTAMP', dateIso);",
+							"    ",
+							"    console.log('date: ' + dateIso);",
+							"    const method = request.method;",
+							"    console.log('method: ' + method);",
+							"    console.log('path: ' + path);",
+							"    const body = request.body.raw;",
+							"    var jsonObject = JSON.parse(body);",
+							"    var minifyJsonObject = JSON.stringify(jsonObject, null, 0)",
+							"    console.log('minifyJsonObject: ' + minifyJsonObject);",
+							"    const bodyToHash = CryptoJS.SHA256(minifyJsonObject);",
+							"    // const bodySha256 = CryptoJS.enc.Base64.stringify(CryptoJS.SHA256(minifyJsonObject)).toLowerCase();",
+							"    const bodySha256 = bodyToHash.toString(CryptoJS.enc.Hex);",
+							"    const accessToken = pm.globals.get('ACCESS_TOKEN');",
+							"    console.log('access token :' + accessToken);",
+							"    console.log('bodySha256: ' + bodySha256);",
+							"    const data = `${method}:${path}:${accessToken}:${bodySha256}:${dateIso}`",
+							"    console.log('stringtosign: ' + data);",
+							"",
+							"   const signatureHash =  createSignature(data, secretKey)",
+							"   console.log('signature :' + signatureHash);",
+							"    pm.globals.set(\"X-SIGNATURE\", signatureHash);",
+							"    ",
+							"}",
+							"",
+							"function createSignature(rawData, secretKey){",
+							"    let signatureUtf8 = CryptoJS.enc.Utf8.parse(rawData);",
+							"    var secretUtf8 = CryptoJS.enc.Utf8.parse(secretKey);",
+							"    console.log(\"secretKey: \" + secretKey);",
+							"    var signatureBytes = CryptoJS.HmacSHA512(signatureUtf8,secretUtf8);",
+							"    var requestSignatureBase64String = CryptoJS.enc.Base64.stringify(signatureBytes);",
+							"    return requestSignatureBase64String;",
+							"}"
+						],
+						"type": "text/javascript",
+						"packages": {},
+						"requests": {}
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{ACCESS_TOKEN}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "X-SIGNATURE",
+						"value": "{{X-SIGNATURE}}",
+						"type": "text"
+					},
+					{
+						"key": "X-TIMESTAMP",
+						"value": "{{X-TIMESTAMP}}",
+						"type": "text"
+					},
+					{
+						"key": "X-PARTNER-ID",
+						"value": "{{X-PARTNER-ID}}",
+						"type": "text"
+					},
+					{
+						"key": "X-EXTERNAL-ID",
+						"value": "0923852sr",
+						"type": "text"
+					},
+					{
+						"key": "CHANNEL-ID",
+						"value": "H2H",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"partnerReferenceNo\":\"uow9d38d2\",\n    \"customerNumber\":\"628115678890\",\n    \"beneficiaryAccountNumber\": \"7746555134\",\n    \"beneficiaryBankCode\":\"008\",\n    \"amount\": {\n        \"value\": \"11000.00\",\n        \"currency\": \"IDR\"\n    },\n    \"sessionId\":\"I0905333750439803\",\n    \"additionalInfo\":{\n        \"channelCode\":\"07\",\n        \"beneficiaryFirstName\":\"A\",\n        \"beneficiaryLastName\":\"Medina\",\n        \"beneficiaryPhoneNumber\":\"081234567890\",\n        \"beneficiaryAccountName\":\"A Medina\",\n        \"senderCountryCode\":\"ID\",\n        \"senderFirstName\":\"JOHN\",\n        \"senderLastName\":\"DOE\",\n        \"senderPersonalId\":\"89012345\",\n        \"senderPersonalIdType\":\"PASSPORT\",\n        \"remark\":\"test remark\"\n    }\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{base url}}snap/v1.1/emoney/transfer-bank",
+					"host": [
+						"{{base url}}snap"
+					],
+					"path": [
+						"v1.1",
+						"emoney",
+						"transfer-bank"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Check Status",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"var CryptoJS = require(\"crypto-js\");",
+							"var moment = require(\"moment\");",
+							"var navigator = {}; //fake a navigator object for the lib",
+							"var window = {}; //fake a window object for the lib",
+							"eval(postman.getGlobalVariable(\"jsrsasign-js\")); //import javascript jsrsasign",
+							"",
+							"const secretKey = pm.environment.get('SECRET_KEY');",
+							"const path = \"/snap/v1.1/qr/qr-mpm-status\"",
+							"signRequest(pm.request, path)",
+							"",
+							"pm.globals.set(\"trx_id\",  _.random(1,99999999));",
+							"",
+							"",
+							"function signRequest(request, path) {",
+							"",
+							"    const date = new Date().toISOString();",
+							"    const dateIso = moment(date).format('YYYY-MM-DDTHH:mm:ssZ') ",
+							"     pm.globals.set('X-TIMESTAMP', dateIso);",
+							"    ",
+							"    console.log('date: ' + dateIso);",
+							"    const method = request.method;",
+							"    console.log('method: ' + method);",
+							"    console.log('path: ' + path);",
+							"    const body = request.body.raw;",
+							"    var jsonObject = JSON.parse(body);",
+							"    var minifyJsonObject = JSON.stringify(jsonObject, null, 0)",
+							"    console.log('minifyJsonObject: ' + minifyJsonObject);",
+							"    const bodyToHash = CryptoJS.SHA256(minifyJsonObject);",
+							"    // const bodySha256 = CryptoJS.enc.Base64.stringify(CryptoJS.SHA256(minifyJsonObject)).toLowerCase();",
+							"    const bodySha256 = bodyToHash.toString(CryptoJS.enc.Hex);",
+							"    const accessToken = pm.globals.get('ACCESS_TOKEN');",
+							"    console.log('access token :' + accessToken);",
+							"    console.log('bodySha256: ' + bodySha256);",
+							"    const data = `${method}:${path}:${accessToken}:${bodySha256}:${dateIso}`",
+							"    console.log('stringtosign: ' + data);",
+							"",
+							"   const signatureHash =  createSignature(data, secretKey)",
+							"   console.log('signature :' + signatureHash);",
+							"    pm.globals.set(\"X-SIGNATURE\", signatureHash);",
+							"    ",
+							"}",
+							"",
+							"function createSignature(rawData, secretKey){",
+							"    let signatureUtf8 = CryptoJS.enc.Utf8.parse(rawData);",
+							"    var secretUtf8 = CryptoJS.enc.Utf8.parse(secretKey);",
+							"    console.log(\"secretKey: \" + secretKey);",
+							"    var signatureBytes = CryptoJS.HmacSHA512(signatureUtf8,secretUtf8);",
+							"    var requestSignatureBase64String = CryptoJS.enc.Base64.stringify(signatureBytes);",
+							"    return requestSignatureBase64String;",
+							"}"
+						],
+						"type": "text/javascript",
+						"packages": {},
+						"requests": {}
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{ACCESS_TOKEN}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "X-SIGNATURE",
+						"value": "{{X-SIGNATURE}}",
+						"type": "text"
+					},
+					{
+						"key": "X-TIMESTAMP",
+						"value": "{{X-TIMESTAMP}}",
+						"type": "text"
+					},
+					{
+						"key": "X-PARTNER-ID",
+						"value": "{{X-PARTNER-ID}}",
+						"type": "text"
+					},
+					{
+						"key": "X-EXTERNAL-ID",
+						"value": "feqtw23ejs",
+						"type": "text"
+					},
+					{
+						"key": "CHANNEL-ID",
+						"value": "H2H",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n   \"originalPartnerReferenceNo\":\"DK01809805\",\n   \"serviceCode\": 43\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{base url}}snap/v1.1/qr/qr-mpm-status",
+					"host": [
+						"{{base url}}snap"
+					],
+					"path": [
+						"v1.1",
+						"qr",
+						"qr-mpm-status"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Check Balance",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"var CryptoJS = require(\"crypto-js\");",
+							"var moment = require(\"moment\");",
+							"var navigator = {}; //fake a navigator object for the lib",
+							"var window = {}; //fake a window object for the lib",
+							"eval(postman.getGlobalVariable(\"jsrsasign-js\")); //import javascript jsrsasign",
+							"",
+							"const secretKey = pm.environment.get('SECRET_KEY');",
+							"const path = \"/snap/v1.1/balance-inquiry\"",
+							"signRequest(pm.request, path)",
+							"",
+							"pm.globals.set(\"trx_id\",  _.random(1,99999999));",
+							"",
+							"",
+							"function signRequest(request, path) {",
+							"",
+							"    const date = new Date().toISOString();",
+							"    const dateIso = moment(date).format('YYYY-MM-DDTHH:mm:ssZ') ",
+							"     pm.globals.set('X-TIMESTAMP', dateIso);",
+							"    ",
+							"    console.log('date: ' + dateIso);",
+							"    const method = request.method;",
+							"    console.log('method: ' + method);",
+							"    console.log('path: ' + path);",
+							"    const body = request.body.raw;",
+							"    var jsonObject = JSON.parse(body);",
+							"    var minifyJsonObject = JSON.stringify(jsonObject, null, 0)",
+							"    console.log('minifyJsonObject: ' + minifyJsonObject);",
+							"    const bodyToHash = CryptoJS.SHA256(minifyJsonObject);",
+							"    // const bodySha256 = CryptoJS.enc.Base64.stringify(CryptoJS.SHA256(minifyJsonObject)).toLowerCase();",
+							"    const bodySha256 = bodyToHash.toString(CryptoJS.enc.Hex);",
+							"    const accessToken = pm.globals.get('ACCESS_TOKEN');",
+							"    console.log('access token :' + accessToken);",
+							"    console.log('bodySha256: ' + bodySha256);",
+							"    const data = `${method}:${path}:${accessToken}:${bodySha256}:${dateIso}`",
+							"    console.log('stringtosign: ' + data);",
+							"",
+							"   const signatureHash =  createSignature(data, secretKey)",
+							"   console.log('signature :' + signatureHash);",
+							"    pm.globals.set(\"X-SIGNATURE\", signatureHash);",
+							"    ",
+							"}",
+							"",
+							"function createSignature(rawData, secretKey){",
+							"    let signatureUtf8 = CryptoJS.enc.Utf8.parse(rawData);",
+							"    var secretUtf8 = CryptoJS.enc.Utf8.parse(secretKey);",
+							"    console.log(\"secretKey: \" + secretKey);",
+							"    var signatureBytes = CryptoJS.HmacSHA512(signatureUtf8,secretUtf8);",
+							"    var requestSignatureBase64String = CryptoJS.enc.Base64.stringify(signatureBytes);",
+							"    return requestSignatureBase64String;",
+							"}"
+						],
+						"type": "text/javascript",
+						"packages": {},
+						"requests": {}
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{ACCESS_TOKEN}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "X-SIGNATURE",
+						"value": "{{X-SIGNATURE}}",
+						"type": "text"
+					},
+					{
+						"key": "X-TIMESTAMP",
+						"value": "{{X-TIMESTAMP}}",
+						"type": "text"
+					},
+					{
+						"key": "X-PARTNER-ID",
+						"value": "{{X-PARTNER-ID}}",
+						"type": "text"
+					},
+					{
+						"key": "X-EXTERNAL-ID",
+						"value": "nlkfiw092",
+						"type": "text"
+					},
+					{
+						"key": "CHANNEL-ID",
+						"value": "H2H",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"accountNo\" : \"A41879\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{base url}}snap/v1.1/balance-inquiry",
+					"host": [
+						"{{base url}}snap"
+					],
+					"path": [
+						"v1.1",
+						"balance-inquiry"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
